@@ -1,0 +1,7 @@
+go 1.27.1
+
+use (
+	./apps/api
+	./packages/config
+	./packages/database
+)
