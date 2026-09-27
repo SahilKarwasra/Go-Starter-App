@@ -1,6 +1,6 @@
 # Go Starter App
 
-A production-ready Go starter application with **Email & Password Authentication**, **JWT Access and Refresh Tokens**, **PostgreSQL (GORM)**, and a clean **layered architecture** structured after [SahilKarwasra/Trello-App](https://github.com/SahilKarwasra/Trello-App).
+A production-ready Go starter application with **Email & Password Authentication**, **JWT Access and Refresh Tokens**, **PostgreSQL (GORM)**, and a clean **layered architecture**.
 
 All API endpoints strictly follow the unified response wrapper schema:
 ```json
