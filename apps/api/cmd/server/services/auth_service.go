@@ -7,6 +7,8 @@ import (
 	"database/models"
 	"errors"
 	"fmt"
+	"log"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +17,7 @@ import (
 
 type AuthService struct {
 	userRepo             repository.UserRepository
+	otpRepo              repository.OTPRepository
 	jwtSecret            string
 	jwtRefreshSecret     string
 	accessTokenDuration  time.Duration
@@ -23,6 +26,7 @@ type AuthService struct {
 
 func NewAuthService(
 	userRepo repository.UserRepository,
+	otpRepo repository.OTPRepository,
 	jwtSecret string,
 	jwtRefreshSecret string,
 	accessTokenDuration time.Duration,
@@ -30,6 +34,7 @@ func NewAuthService(
 ) *AuthService {
 	return &AuthService{
 		userRepo:             userRepo,
+		otpRepo:              otpRepo,
 		jwtSecret:            jwtSecret,
 		jwtRefreshSecret:     jwtRefreshSecret,
 		accessTokenDuration:  accessTokenDuration,
@@ -37,8 +42,25 @@ func NewAuthService(
 	}
 }
 
+func (s *AuthService) toUserResponse(user *models.User) UserResponse {
+	resp := UserResponse{
+		ID:        user.ID,
+		Name:      user.Name,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}
+	if user.Email != nil {
+		resp.Email = *user.Email
+	}
+	if user.Phone != nil {
+		resp.Phone = *user.Phone
+	}
+	return resp
+}
+
 func (s *AuthService) SignUp(ctx context.Context, req SignUpRequest) (*AuthResponse, error) {
-	existing, err := s.userRepo.FindByEmail(ctx, req.Email)
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	existing, err := s.userRepo.FindByEmail(ctx, email)
 	if err == nil && existing != nil {
 		return nil, utils.ErrEmailAlreadyExists
 	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -51,7 +73,7 @@ func (s *AuthService) SignUp(ctx context.Context, req SignUpRequest) (*AuthRespo
 	}
 
 	user := models.User{
-		Email:    req.Email,
+		Email:    &email,
 		Password: hashedPassword,
 		Name:     req.Name,
 	}
@@ -60,12 +82,17 @@ func (s *AuthService) SignUp(ctx context.Context, req SignUpRequest) (*AuthRespo
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	accessToken, err := utils.GenerateAccessToken(user.ID, user.Email, s.jwtSecret, s.accessTokenDuration)
+	emailStr := ""
+	if user.Email != nil {
+		emailStr = *user.Email
+	}
+
+	accessToken, err := utils.GenerateAccessToken(user.ID, emailStr, "", s.jwtSecret, s.accessTokenDuration)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	refreshToken, err := utils.GenerateRefreshToken(user.ID, user.Email, s.jwtRefreshSecret, s.refreshTokenDuration)
+	refreshToken, err := utils.GenerateRefreshToken(user.ID, emailStr, "", s.jwtRefreshSecret, s.refreshTokenDuration)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
@@ -77,18 +104,13 @@ func (s *AuthService) SignUp(ctx context.Context, req SignUpRequest) (*AuthRespo
 	return &AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		User: UserResponse{
-			ID:        user.ID,
-			Email:     user.Email,
-			Name:      user.Name,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-		},
+		User:         s.toUserResponse(&user),
 	}, nil
 }
 
 func (s *AuthService) SignIn(ctx context.Context, req SignInRequest) (*AuthResponse, error) {
-	user, err := s.userRepo.FindByEmail(ctx, req.Email)
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	user, err := s.userRepo.FindByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, utils.ErrInvalidCredentials
@@ -100,12 +122,21 @@ func (s *AuthService) SignIn(ctx context.Context, req SignInRequest) (*AuthRespo
 		return nil, utils.ErrInvalidCredentials
 	}
 
-	accessToken, err := utils.GenerateAccessToken(user.ID, user.Email, s.jwtSecret, s.accessTokenDuration)
+	emailStr := ""
+	if user.Email != nil {
+		emailStr = *user.Email
+	}
+	phoneStr := ""
+	if user.Phone != nil {
+		phoneStr = *user.Phone
+	}
+
+	accessToken, err := utils.GenerateAccessToken(user.ID, emailStr, phoneStr, s.jwtSecret, s.accessTokenDuration)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	refreshToken, err := utils.GenerateRefreshToken(user.ID, user.Email, s.jwtRefreshSecret, s.refreshTokenDuration)
+	refreshToken, err := utils.GenerateRefreshToken(user.ID, emailStr, phoneStr, s.jwtRefreshSecret, s.refreshTokenDuration)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
@@ -117,13 +148,97 @@ func (s *AuthService) SignIn(ctx context.Context, req SignInRequest) (*AuthRespo
 	return &AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		User: UserResponse{
-			ID:        user.ID,
-			Email:     user.Email,
-			Name:      user.Name,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-		},
+		User:         s.toUserResponse(user),
+	}, nil
+}
+
+func (s *AuthService) SendOTP(ctx context.Context, req SendOTPRequest) (*SendOTPResponse, error) {
+	phone := strings.TrimSpace(req.Phone)
+
+	// Invalidate previous active OTPs for this phone
+	_ = s.otpRepo.InvalidatePreviousOTPs(ctx, phone)
+
+	code, err := utils.GenerateNumericOTP(6)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate OTP: %w", err)
+	}
+
+	otp := models.OTP{
+		Phone:     phone,
+		Code:      code,
+		ExpiresAt: time.Now().Add(5 * time.Minute),
+		Used:      false,
+	}
+
+	if err := s.otpRepo.CreateOTP(ctx, &otp); err != nil {
+		return nil, fmt.Errorf("failed to save OTP: %w", err)
+	}
+
+	log.Printf("[AUTH] Generated OTP for %s: %s (expires in 5 minutes)", phone, code)
+
+	return &SendOTPResponse{
+		Phone: phone,
+	}, nil
+}
+
+func (s *AuthService) VerifyOTP(ctx context.Context, req VerifyOTPRequest) (*AuthResponse, error) {
+	phone := strings.TrimSpace(req.Phone)
+	otp, err := s.otpRepo.FindValidOTP(ctx, phone, req.OTP)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, utils.ErrInvalidOTP
+		}
+		return nil, fmt.Errorf("failed to verify OTP: %w", err)
+	}
+
+	// Mark OTP as used
+	if err := s.otpRepo.MarkOTPAsUsed(ctx, otp.ID); err != nil {
+		return nil, fmt.Errorf("failed to consume OTP: %w", err)
+	}
+
+	// Find existing user or automatically create a new user (login / signup)
+	user, err := s.userRepo.FindByPhone(ctx, phone)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("failed to query database: %w", err)
+	}
+
+	if errors.Is(err, gorm.ErrRecordNotFound) || user == nil {
+		newUser := models.User{
+			Phone: &phone,
+		}
+		if err := s.userRepo.CreateUser(ctx, &newUser); err != nil {
+			return nil, fmt.Errorf("failed to create user: %w", err)
+		}
+		user = &newUser
+	}
+
+	emailStr := ""
+	if user.Email != nil {
+		emailStr = *user.Email
+	}
+	phoneStr := ""
+	if user.Phone != nil {
+		phoneStr = *user.Phone
+	}
+
+	accessToken, err := utils.GenerateAccessToken(user.ID, emailStr, phoneStr, s.jwtSecret, s.accessTokenDuration)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	refreshToken, err := utils.GenerateRefreshToken(user.ID, emailStr, phoneStr, s.jwtRefreshSecret, s.refreshTokenDuration)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	if err := s.userRepo.UpdateRefreshToken(ctx, user.ID, refreshToken); err != nil {
+		return nil, fmt.Errorf("failed to save refresh token: %w", err)
+	}
+
+	return &AuthResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		User:         s.toUserResponse(user),
 	}, nil
 }
 
@@ -145,12 +260,21 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*T
 		return nil, utils.ErrInvalidRefreshToken
 	}
 
-	newAccessToken, err := utils.GenerateAccessToken(user.ID, user.Email, s.jwtSecret, s.accessTokenDuration)
+	emailStr := ""
+	if user.Email != nil {
+		emailStr = *user.Email
+	}
+	phoneStr := ""
+	if user.Phone != nil {
+		phoneStr = *user.Phone
+	}
+
+	newAccessToken, err := utils.GenerateAccessToken(user.ID, emailStr, phoneStr, s.jwtSecret, s.accessTokenDuration)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	newRefreshToken, err := utils.GenerateRefreshToken(user.ID, user.Email, s.jwtRefreshSecret, s.refreshTokenDuration)
+	newRefreshToken, err := utils.GenerateRefreshToken(user.ID, emailStr, phoneStr, s.jwtRefreshSecret, s.refreshTokenDuration)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
@@ -178,11 +302,6 @@ func (s *AuthService) GetProfile(ctx context.Context, userID uuid.UUID) (*UserRe
 		return nil, fmt.Errorf("failed to query database: %w", err)
 	}
 
-	return &UserResponse{
-		ID:        user.ID,
-		Email:     user.Email,
-		Name:      user.Name,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-	}, nil
+	resp := s.toUserResponse(user)
+	return &resp, nil
 }

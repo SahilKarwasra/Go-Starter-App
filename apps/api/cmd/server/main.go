@@ -24,10 +24,12 @@ func main() {
 
 	// Repositories
 	userRepo := repository.NewUserRepository(db)
+	otpRepo := repository.NewOTPRepository(db)
 
 	// Services
 	authService := services.NewAuthService(
 		userRepo,
+		otpRepo,
 		cfg.JwtSecret,
 		cfg.JwtRefreshSecret,
 		cfg.AccessTokenDuration,

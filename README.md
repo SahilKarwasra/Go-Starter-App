@@ -208,7 +208,67 @@ Every response returns the standard `APIResponse`:
 
 ---
 
-### 4. Refresh Token
+### 4. Send OTP (Mobile Login)
+Generates and sends a 6-digit numeric OTP to the provided phone number (valid for 5 minutes). The OTP is logged to the server terminal.
+- **Endpoint**: `POST /api/v1/auth/send-otp`
+- **Access**: Public
+- **Request Body**:
+```json
+{
+  "phone": "+919876543210"
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "phone": "+919876543210"
+  },
+  "isSuccess": true,
+  "message": "OTP sent successfully"
+}
+```
+- **Terminal Log**:
+```
+[AUTH] Generated OTP for +919876543210: 839889 (expires in 5 minutes)
+```
+
+---
+
+### 5. Verify OTP (Mobile Login / Auto-Signup)
+Verifies the OTP code. If the user with this phone number does not exist, it automatically creates an account. Returns the exact same authentication tokens and user payload as email signin/signup.
+- **Endpoint**: `POST /api/v1/auth/verify-otp`
+- **Access**: Public
+- **Request Body**:
+```json
+{
+  "phone": "+919876543210",
+  "otp": "839889"
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "accessToken": "eyJhbGciOi...",
+    "refreshToken": "eyJhbGciOi...",
+    "user": {
+      "id": "e4b1a43a-7965-4f35-9f5b-6f8d0ab9182a",
+      "phone": "+919876543210",
+      "createdAt": "2026-09-28T00:50:00Z",
+      "updatedAt": "2026-09-28T00:50:00Z"
+    }
+  },
+  "isSuccess": true,
+  "message": "Signed in successfully"
+}
+```
+
+---
+
+### 6. Refresh Token
 Refreshes the access token using a valid refresh token. Rotates the refresh token for security.
 - **Endpoint**: `POST /api/v1/auth/refresh-token`
 - **Access**: Public
@@ -233,7 +293,7 @@ Refreshes the access token using a valid refresh token. Rotates the refresh toke
 
 ---
 
-### 5. Get User Profile
+### 7. Get User Profile
 - **Endpoint**: `GET /api/v1/auth/me`
 - **Access**: Protected (`Authorization: Bearer <accessToken>`)
 - **Response (200 OK)**:
@@ -254,7 +314,7 @@ Refreshes the access token using a valid refresh token. Rotates the refresh toke
 
 ---
 
-### 6. Logout
+### 8. Logout
 Revokes the refresh token in the database.
 - **Endpoint**: `POST /api/v1/auth/logout`
 - **Access**: Protected (`Authorization: Bearer <accessToken>`)

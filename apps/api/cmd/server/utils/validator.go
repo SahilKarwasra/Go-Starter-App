@@ -49,6 +49,12 @@ func FormatValidationError(err error) string {
 				errorMessages = append(errorMessages, fmt.Sprintf("%s must be at least %s characters long", fieldName, e.Param()))
 			case "max":
 				errorMessages = append(errorMessages, fmt.Sprintf("%s must not exceed %s characters", fieldName, e.Param()))
+			case "len":
+				errorMessages = append(errorMessages, fmt.Sprintf("%s must be exactly %s characters long", fieldName, e.Param()))
+			case "e164":
+				errorMessages = append(errorMessages, fmt.Sprintf("%s must be a valid phone number with country code (e.g. +1234567890)", fieldName))
+			case "numeric":
+				errorMessages = append(errorMessages, fmt.Sprintf("%s must contain only digits", fieldName))
 			default:
 				errorMessages = append(errorMessages, fmt.Sprintf("%s failed validation on '%s'", fieldName, e.Tag()))
 			}

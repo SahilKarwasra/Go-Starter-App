@@ -17,26 +17,28 @@ const (
 
 type JWTClaims struct {
 	UserID    uuid.UUID `json:"user_id"`
-	Email     string    `json:"email"`
+	Email     string    `json:"email,omitempty"`
+	Phone     string    `json:"phone,omitempty"`
 	TokenType TokenType `json:"token_type"`
 	jwt.RegisteredClaims
 }
 
 // GenerateAccessToken generates a short-lived signed JWT access token.
-func GenerateAccessToken(userID uuid.UUID, email string, secret string, duration time.Duration) (string, error) {
-	return generateToken(userID, email, TokenTypeAccess, secret, duration)
+func GenerateAccessToken(userID uuid.UUID, email string, phone string, secret string, duration time.Duration) (string, error) {
+	return generateToken(userID, email, phone, TokenTypeAccess, secret, duration)
 }
 
 // GenerateRefreshToken generates a long-lived signed JWT refresh token.
-func GenerateRefreshToken(userID uuid.UUID, email string, secret string, duration time.Duration) (string, error) {
-	return generateToken(userID, email, TokenTypeRefresh, secret, duration)
+func GenerateRefreshToken(userID uuid.UUID, email string, phone string, secret string, duration time.Duration) (string, error) {
+	return generateToken(userID, email, phone, TokenTypeRefresh, secret, duration)
 }
 
-func generateToken(userID uuid.UUID, email string, tokenType TokenType, secret string, duration time.Duration) (string, error) {
+func generateToken(userID uuid.UUID, email string, phone string, tokenType TokenType, secret string, duration time.Duration) (string, error) {
 	now := time.Now()
 	claims := &JWTClaims{
 		UserID:    userID,
 		Email:     email,
+		Phone:     phone,
 		TokenType: tokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        uuid.New().String(),

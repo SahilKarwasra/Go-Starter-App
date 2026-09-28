@@ -11,6 +11,7 @@ import (
 type UserRepository interface {
 	CreateUser(ctx context.Context, user *models.User) error
 	FindByEmail(ctx context.Context, email string) (*models.User, error)
+	FindByPhone(ctx context.Context, phone string) (*models.User, error)
 	FindByID(ctx context.Context, id uuid.UUID) (*models.User, error)
 	UpdateRefreshToken(ctx context.Context, userID uuid.UUID, refreshToken string) error
 }
@@ -30,6 +31,15 @@ func (r *userRepository) CreateUser(ctx context.Context, user *models.User) erro
 func (r *userRepository) FindByEmail(ctx context.Context, email string) (*models.User, error) {
 	var user models.User
 	err := r.db.WithContext(ctx).Where("LOWER(email) = LOWER(?)", email).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *userRepository) FindByPhone(ctx context.Context, phone string) (*models.User, error) {
+	var user models.User
+	err := r.db.WithContext(ctx).Where("phone = ?", phone).First(&user).Error
 	if err != nil {
 		return nil, err
 	}

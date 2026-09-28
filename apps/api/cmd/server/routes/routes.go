@@ -27,6 +27,8 @@ func SetupRouter(
 		{
 			auth.POST("/sign-up", authHandler.SignUp)
 			auth.POST("/sign-in", authHandler.SignIn)
+			auth.POST("/send-otp", authHandler.SendOTP)
+			auth.POST("/verify-otp", authHandler.VerifyOTP)
 			auth.POST("/refresh-token", authHandler.RefreshToken)
 		}
 

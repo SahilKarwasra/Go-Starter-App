@@ -60,6 +60,42 @@ func (h *AuthHandler) SignIn(c *gin.Context) {
 	utils.Success(c, http.StatusOK, "Signed in successfully", res)
 }
 
+func (h *AuthHandler) SendOTP(c *gin.Context) {
+	var req services.SendOTPRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, utils.FormatValidationError(err))
+		return
+	}
+
+	res, err := h.authService.SendOTP(c.Request.Context(), req)
+	if err != nil {
+		utils.InternalServerError(c, err.Error())
+		return
+	}
+
+	utils.Success(c, http.StatusOK, "OTP sent successfully", res)
+}
+
+func (h *AuthHandler) VerifyOTP(c *gin.Context) {
+	var req services.VerifyOTPRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, utils.FormatValidationError(err))
+		return
+	}
+
+	res, err := h.authService.VerifyOTP(c.Request.Context(), req)
+	if err != nil {
+		if errors.Is(err, utils.ErrInvalidOTP) {
+			utils.Unauthorized(c, err.Error())
+			return
+		}
+		utils.InternalServerError(c, err.Error())
+		return
+	}
+
+	utils.Success(c, http.StatusOK, "Signed in successfully", res)
+}
+
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	var req services.RefreshTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
