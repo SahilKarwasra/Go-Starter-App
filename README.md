@@ -26,7 +26,6 @@ Go-Starter-App/
 │       │   └── server/
 │       │       ├── handler/
 │       │       │   ├── auth_handler.go     # HTTP request handlers using response wrapper
-│       │       │   └── auth_handler_test.go
 │       │       ├── middleware/
 │       │       │   └── auth_middleware.go  # JWT Bearer token validation middleware
 │       │       ├── repository/
@@ -36,14 +35,11 @@ Go-Starter-App/
 │       │       ├── services/
 │       │       │   ├── auth_dto.go         # Request / Response DTO structs
 │       │       │   ├── auth_service.go     # Business logic, token generation & rotation
-│       │       │   └── auth_service_test.go
 │       │       ├── utils/
 │       │       │   ├── errors.go           # Common sentinel errors
 │       │       │   ├── jwt.go              # JWT access & refresh token helper
 │       │       │   ├── password.go         # bcrypt hashing and checking
 │       │       │   ├── response.go         # APIResponse wrapper (Success, Error, BadRequest, etc.)
-│       │       │   ├── jwt_test.go
-│       │       │   └── password_test.go
 │       │       └── main.go                 # API server entrypoint
 │       └── go.mod
 ├── packages/
