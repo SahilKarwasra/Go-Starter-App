@@ -29,17 +29,20 @@ Go-Starter-App/
 │       │       ├── middleware/
 │       │       │   └── auth_middleware.go  # JWT Bearer token validation middleware
 │       │       ├── repository/
+│       │       │   ├── otp_repository.go   # OTP database operations
 │       │       │   └── user_repository.go  # Database query layer (GORM)
 │       │       ├── routes/
 │       │       │   └── routes.go           # Gin router setup and endpoint registration
 │       │       ├── services/
 │       │       │   ├── auth_dto.go         # Request / Response DTO structs
-│       │       │   ├── auth_service.go     # Business logic, token generation & rotation
+│       │       │   ├── auth_service.go     # Business logic, OTP, token generation & rotation
 │       │       ├── utils/
 │       │       │   ├── errors.go           # Common sentinel errors
 │       │       │   ├── jwt.go              # JWT access & refresh token helper
+│       │       │   ├── otp.go              # Cryptographic numeric OTP generator
 │       │       │   ├── password.go         # bcrypt hashing and checking
 │       │       │   ├── response.go         # APIResponse wrapper (Success, Error, BadRequest, etc.)
+│       │       │   └── validator.go        # Clean validation error message formatter
 │       │       └── main.go                 # API server entrypoint
 │       └── go.mod
 ├── packages/
@@ -50,6 +53,7 @@ Go-Starter-App/
 │       ├── migrate/
 │       │   └── migrate.go                  # Auto-migration schema definitions
 │       ├── models/
+│       │   ├── otp.go                      # GORM OTP model
 │       │   └── users.go                    # GORM User model
 │       ├── postgres.go                     # Database connection pool setup
 │       └── go.mod
